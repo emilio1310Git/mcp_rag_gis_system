@@ -6,7 +6,7 @@ from typing import Optional
 import PyPDF2
 import pandas as pd
 import docx
-from ..config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 

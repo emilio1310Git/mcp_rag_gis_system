@@ -2,13 +2,23 @@
 
 import asyncio
 import logging
+import sys
+from pathlib import Path
 from typing import List, Dict, Any
+
+# Configurar path para importaciones
+src_path = Path(__file__).parent.parent
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+# Importaciones del proyecto (ahora absolutas)
+from services.maps_service import MapsService
+from config import settings
+
+# Importaciones MCP
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
-
-from ..services.maps_service import MapsService
-from ..config import settings
 
 logger = logging.getLogger(__name__)
 

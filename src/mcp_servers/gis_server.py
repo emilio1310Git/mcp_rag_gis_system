@@ -9,10 +9,17 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
-from ..services.gis_service import GISService
-from ..services.maps_service import MapsService
-from ..database import postgres_client
-from ..config import settings
+import sys
+from pathlib import Path
+src_path = Path(__file__).parent.parent
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+# Cambiar importaciones:
+from services.gis_service import GISService
+from services.maps_service import MapsService
+from database import postgres_client
+from config import settings
 
 logger = logging.getLogger(__name__)
 

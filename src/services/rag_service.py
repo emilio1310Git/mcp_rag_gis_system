@@ -14,8 +14,8 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 
-from ..config import settings
-from ..utils.document_processor import DocumentProcessor
+from config import settings
+from utils.document_processor import DocumentProcessor
 
 logger = logging.getLogger(__name__)
 
