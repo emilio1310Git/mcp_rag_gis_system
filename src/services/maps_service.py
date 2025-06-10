@@ -8,7 +8,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import requests
 
-from ..config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 

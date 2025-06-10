@@ -11,8 +11,8 @@ from folium import plugins
 import pyproj
 from functools import partial
 
-from ..config import settings
-from ..database import postgres_client
+from config import settings
+from database import postgres_client
 
 logger = logging.getLogger(__name__)
 
