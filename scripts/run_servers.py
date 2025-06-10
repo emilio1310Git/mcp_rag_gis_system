@@ -39,12 +39,12 @@ class ServerConfig:
     
     Attributes:
         name: Nombre descriptivo del servidor
-        script_path: Ruta al script Python del servidor
+        module_path: Ruta del módulo Python (formato src.mcp_servers.server_name)
         description: Descripción de las funcionalidades del servidor
         critical: Si es True, el fallo de este servidor detiene todo el sistema
     """
     name: str
-    script_path: str
+    module_path: str
     description: str
     critical: bool = True
 
@@ -71,23 +71,26 @@ class ServerManager:
         # Flag que controla el bucle de monitorización
         self.running: bool = False
         
+        # Directorio raíz del proyecto
+        self.project_root = Path(__file__).parent.parent
+        
         # Configuración de los servidores MCP disponibles
         self.server_configs: List[ServerConfig] = [
             ServerConfig(
                 name="RAG",
-                script_path="src/mcp_servers/rag_server.py",
+                module_path="src.mcp_servers.rag_server",
                 description="Procesamiento de documentos y consultas RAG con LangChain + Ollama",
                 critical=True
             ),
             ServerConfig(
                 name="Maps", 
-                script_path="src/mcp_servers/maps_server.py",
+                module_path="src.mcp_servers.maps_server",
                 description="Mapas interactivos y búsqueda de equipamientos via OpenStreetMap",
                 critical=False
             ),
             ServerConfig(
                 name="GIS",
-                script_path="src/mcp_servers/gis_server.py", 
+                module_path="src.mcp_servers.gis_server", 
                 description="Análisis geoespacial avanzado con PostgreSQL/PostGIS",
                 critical=False
             )
@@ -95,27 +98,28 @@ class ServerManager:
         
         logger.info("🏗️ ServerManager inicializado")
         
-    def _validate_server_scripts(self) -> List[ServerConfig]:
+    def _validate_server_modules(self) -> List[ServerConfig]:
         """
-        Validar que todos los scripts de servidores existen
+        Validar que todos los módulos de servidores existen
         
         Returns:
             Lista de configuraciones de servidores válidos
             
         Raises:
-            FileNotFoundError: Si algún script crítico no existe
+            FileNotFoundError: Si algún módulo crítico no existe
         """
         valid_servers: List[ServerConfig] = []
         missing_critical: List[str] = []
         
         for config in self.server_configs:
-            script_path = Path(config.script_path)
+            # Convertir ruta de módulo a ruta de archivo
+            module_file_path = self.project_root / config.module_path.replace(".", "/") + ".py"
             
-            if script_path.exists():
+            if module_file_path.exists():
                 valid_servers.append(config)
-                logger.info(f"✅ Script encontrado: {config.script_path}")
+                logger.info(f"✅ Módulo encontrado: {config.module_path}")
             else:
-                logger.warning(f"⚠️ Script no encontrado: {config.script_path}")
+                logger.warning(f"⚠️ Módulo no encontrado: {module_file_path}")
                 if config.critical:
                     missing_critical.append(config.name)
         
@@ -139,17 +143,18 @@ class ServerManager:
         """
         try:
             logger.info(f"🚀 Iniciando servidor {config.name}...")
-            logger.debug(f"   Script: {config.script_path}")
+            logger.debug(f"   Módulo: {config.module_path}")
             logger.debug(f"   Descripción: {config.description}")
             
-            # Crear proceso subprocess para el servidor
+            # Crear proceso subprocess para el servidor usando -m
             process = subprocess.Popen(
-                [sys.executable, config.script_path],
+                [sys.executable, "-m", config.module_path],
                 stdout=subprocess.PIPE,  # Capturar stdout para logging
                 stderr=subprocess.PIPE,  # Capturar stderr para debugging
                 text=True,              # Usar strings en lugar de bytes
                 bufsize=1,              # Buffering línea por línea
-                universal_newlines=True
+                universal_newlines=True,
+                cwd=str(self.project_root)  # Ejecutar desde raíz del proyecto
             )
             
             # Verificar que el proceso se inició correctamente
@@ -338,7 +343,7 @@ class ServerManager:
         Ejecutar el sistema completo de servidores MCP
         
         Flujo principal:
-        1. Validar scripts de servidores
+        1. Validar módulos de servidores
         2. Configurar manejadores de señales  
         3. Iniciar servidores secuencialmente
         4. Mostrar información de estado
@@ -347,8 +352,8 @@ class ServerManager:
         logger.info("🚀 Iniciando Sistema MCP RAG GIS v2.0")
         
         try:
-            # Paso 1: Validar que todos los scripts existen
-            valid_servers = self._validate_server_scripts()
+            # Paso 1: Validar que todos los módulos existen
+            valid_servers = self._validate_server_modules()
             logger.info(f"✅ Validación completada: {len(valid_servers)} servidores disponibles")
             
             # Paso 2: Configurar manejadores de señales para cierre limpio
