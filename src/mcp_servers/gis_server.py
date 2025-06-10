@@ -1,25 +1,26 @@
 """Servidor MCP para análisis GIS y secciones censales"""
 
-"""Servidor MCP para análisis GIS y secciones censales"""
-
 import asyncio
 import logging
-from typing import List, Dict, Any
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-
 import sys
 from pathlib import Path
+from typing import List, Dict, Any
+
+# Configurar path para importaciones
 src_path = Path(__file__).parent.parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-# Cambiar importaciones:
+# Importaciones del proyecto (ahora absolutas)
 from services.gis_service import GISService
 from services.maps_service import MapsService
 from database import postgres_client
 from config import settings
+
+# Importaciones MCP
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
 
 logger = logging.getLogger(__name__)
 
