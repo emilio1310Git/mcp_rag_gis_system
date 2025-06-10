@@ -22,7 +22,12 @@ class MapsService:
     async def geocode_address(self, address: str) -> Tuple[float, float]:
         """Geocodificar dirección usando Nominatim"""
         try:
-            location = self.geolocator.geocode(address, timeout=10)
+            import asyncio
+            loop = asyncio.get_event_loop()
+            location = await loop.run_in_executor(
+                None, 
+                lambda: self.geolocator.geocode(address, timeout=10)
+            )
             if location:
                 return location.latitude, location.longitude
             else:

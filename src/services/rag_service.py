@@ -54,7 +54,7 @@ class RAGService:
             )
             
             # Cargar vectorstore si existe
-            await self._load_existing_vectorstore()
+            self._load_existing_vectorstore()
             
             logger.info("Servicio RAG inicializado correctamente")
             

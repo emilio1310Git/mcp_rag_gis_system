@@ -29,12 +29,18 @@ class GISService:
         """Configurar transformadores de proyección"""
         try:
             # Transformador de geográfico a proyectado (para cálculos de distancia)
+
             self.transformer_to_projected = pyproj.Transformer.from_crs(
                 settings.gis.default_crs,
                 settings.gis.projected_crs,
                 always_xy=True
             )
-            
+        except Exception as e:
+            logger.error(f"Error configurando proyecciones: {e}")
+            # Configuración fallback
+            self.transformer_to_projected = None
+            self.transformer_to_geographic = None        
+        try:
             # Transformador de proyectado a geográfico
             self.transformer_to_geographic = pyproj.Transformer.from_crs(
                 settings.gis.projected_crs,

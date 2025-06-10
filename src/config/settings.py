@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from typing import Optional
-from pydantic import BaseSettings, Field
+from pydantic import BaseSettings, Field, field_validator
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -50,8 +50,8 @@ class APISettings(BaseSettings):
     version: str = "2.0.0"
     
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
-    cors_methods: list[str] = ["GET", "POST", "PUT", "DELETE"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080", "http://localhost:8050"]
+    cors_methods: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     cors_headers: list[str] = ["*"]
 
 class PathSettings(BaseSettings):
@@ -65,20 +65,25 @@ class PathSettings(BaseSettings):
     maps_dir: Path = Field(default=None, env="MAPS_DIR")
     logs_dir: Path = Field(default=None, env="LOGS_DIR")
     
-    def __post_init__(self):
-        """Inicializar rutas si no están definidas"""
-        if self.documents_dir is None:
-            self.documents_dir = self.base_dir / "data" / "documents"
-        if self.vector_db_dir is None:
-            self.vector_db_dir = self.base_dir / "data" / "chroma_db"
-        if self.maps_dir is None:
-            self.maps_dir = self.base_dir / "data" / "maps"
-        if self.logs_dir is None:
-            self.logs_dir = self.base_dir / "logs"
+    @field_validator('documents_dir', 'vector_db_dir', 'maps_dir', 'logs_dir', mode='before')
+    @classmethod
+    def create_directories(cls, v, info):
+        """Crear directorios automáticamente"""
+        if v is None:
+            base_dir = Path(__file__).parent.parent.parent
+            field_name = info.field_name
+            if field_name == 'documents_dir':
+                v = base_dir / "data" / "documents"
+            elif field_name == 'vector_db_dir':
+                v = base_dir / "data" / "chroma_db"
+            elif field_name == 'maps_dir':
+                v = base_dir / "data" / "maps"
+            elif field_name == 'logs_dir':
+                v = base_dir / "logs"
         
-        # Crear directorios
-        for directory in [self.documents_dir, self.vector_db_dir, self.maps_dir, self.logs_dir]:
-            directory.mkdir(parents=True, exist_ok=True)
+        if v:
+            Path(v).mkdir(parents=True, exist_ok=True)
+        return v
 
 class RAGSettings(BaseSettings):
     """Configuración del sistema RAG"""
