@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-rag-gis-system"
+version = "2.0.0"
+description = "Sistema MCP avanzado con RAG, GIS y análisis geoespacial"
+authors = [{name = "Developer", email = "dev@example.com"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "mcp>=1.1.0",
+    "langchain>=0.3.1",
+    "langchain-ollama>=0.2.0",
+    "langchain-core>=0.3.1",
+    "langchain-chroma>=0.1.4",
+    "chromadb>=0.5.0",
+    "psycopg2-binary>=2.9.9",
+    "geopandas>=1.0.1",
+    "shapely>=2.0.4",
+    "folium>=0.16.0",
+    "overpy>=0.7",
+    "geopy>=2.4.1",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "PyPDF2>=3.0.1",
+    "python-multipart>=0.0.9",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0"
+]
