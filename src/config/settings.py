@@ -1,9 +1,12 @@
 """Configuración centralizada del sistema MCP RAG GIS"""
 
+"""Configuración centralizada del sistema MCP RAG GIS"""
+
 import os
 from pathlib import Path
-from typing import Optional
-from pydantic import BaseSettings, Field, field_validator
+from typing import Optional, List, Dict, Any
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -12,91 +15,172 @@ load_dotenv()
 class DatabaseSettings(BaseSettings):
     """Configuración de base de datos PostgreSQL"""
     
-    host: str = Field(default="localhost", env="POSTGRES_HOST")
-    port: int = Field(default=5432, env="POSTGRES_PORT")
-    database: str = Field(default="gis_db", env="POSTGRES_DB")
-    username: str = Field(default="postgres", env="POSTGRES_USER")
-    password: str = Field(default="password", env="POSTGRES_PASSWORD")
+    model_config = SettingsConfigDict(
+        env_prefix="POSTGRES_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    host: str = Field(default="localhost", description="Host de PostgreSQL")
+    port: int = Field(default=5432, description="Puerto de PostgreSQL")
+    db: str = Field(default="gis_db", description="Nombre de la base de datos")
+    user: str = Field(default="postgres", description="Usuario de PostgreSQL")
+    password: str = Field(default="password", description="Contraseña de PostgreSQL")
     
     @property
     def url(self) -> str:
         """URL de conexión a PostgreSQL"""
-        return f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
     
     @property
     def async_url(self) -> str:
         """URL de conexión asíncrona"""
-        return f"postgresql+asyncpg://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
+    
+    # Propiedades de compatibilidad
+    @property
+    def database(self) -> str:
+        return self.db
+    
+    @property
+    def username(self) -> str:
+        return self.user
 
 class OllamaSettings(BaseSettings):
     """Configuración de Ollama"""
     
-    url: str = Field(default="http://localhost:11434", env="OLLAMA_URL")
-    default_model: str = Field(default="llama3.2", env="DEFAULT_MODEL")
-    embedding_model: str = Field(default="nomic-embed-text", env="EMBEDDING_MODEL")
+    model_config = SettingsConfigDict(
+        env_prefix="OLLAMA_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    url: str = Field(default="http://localhost:11434", description="URL de Ollama")
+    
+    # Modelos (sin prefijo para compatibilidad)
+    default_model: str = Field(default="llama3.2")
+    embedding_model: str = Field(default="nomic-embed-text")
     
     # Parámetros del modelo
     temperature: float = Field(default=0.1)
     top_p: float = Field(default=0.9)
     max_tokens: int = Field(default=2048)
+    
+    def __init__(self, **kwargs):
+        # Manejar variables de entorno sin prefijo para modelos
+        env_default_model = os.getenv("DEFAULT_MODEL")
+        env_embedding_model = os.getenv("EMBEDDING_MODEL")
+        
+        if env_default_model and "default_model" not in kwargs:
+            kwargs["default_model"] = env_default_model
+        if env_embedding_model and "embedding_model" not in kwargs:
+            kwargs["embedding_model"] = env_embedding_model
+            
+        super().__init__(**kwargs)
 
 class APISettings(BaseSettings):
     """Configuración de la API"""
     
-    host: str = Field(default="localhost", env="API_HOST")
-    port: int = Field(default=8000, env="API_PORT")
-    debug: bool = Field(default=False, env="DEBUG")
-    title: str = "Sistema MCP RAG GIS"
-    version: str = "2.0.0"
+    model_config = SettingsConfigDict(
+        env_prefix="API_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    host: str = Field(default="localhost", description="Host de la API")
+    port: int = Field(default=8000, description="Puerto de la API")
+    debug: bool = Field(default=False, description="Modo debug")
+    title: str = Field(default="Sistema MCP RAG GIS")
+    version: str = Field(default="2.0.0")
     
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080", "http://localhost:8050"]
-    cors_methods: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    cors_headers: list[str] = ["*"]
+    cors_origins: List[str] = Field(default=[
+        "http://localhost:3000", 
+        "http://localhost:8080", 
+        "http://localhost:8050"
+    ])
+    cors_methods: List[str] = Field(default=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    cors_headers: List[str] = Field(default=["*"])
+    
+    def __init__(self, **kwargs):
+        # Manejar DEBUG sin prefijo para compatibilidad
+        env_debug = os.getenv("DEBUG")
+        if env_debug and "debug" not in kwargs:
+            kwargs["debug"] = env_debug.lower() in ("true", "1", "yes", "on")
+            
+        super().__init__(**kwargs)
 
 class PathSettings(BaseSettings):
     """Configuración de rutas del proyecto"""
     
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
     base_dir: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent)
     
     # Directorios de datos
-    documents_dir: Path = Field(default=None, env="DOCUMENTS_DIR")
-    vector_db_dir: Path = Field(default=None, env="VECTOR_DB_DIR")
-    maps_dir: Path = Field(default=None, env="MAPS_DIR")
-    logs_dir: Path = Field(default=None, env="LOGS_DIR")
+    documents_dir: Optional[Path] = Field(default=None)
+    vector_db_dir: Optional[Path] = Field(default=None)
+    maps_dir: Optional[Path] = Field(default=None)
+    logs_dir: Optional[Path] = Field(default=None)
     
-    @field_validator('documents_dir', 'vector_db_dir', 'maps_dir', 'logs_dir', mode='before')
-    @classmethod
-    def create_directories(cls, v, info):
-        """Crear directorios automáticamente"""
-        if v is None:
-            base_dir = Path(__file__).parent.parent.parent
-            field_name = info.field_name
-            if field_name == 'documents_dir':
-                v = base_dir / "data" / "documents"
-            elif field_name == 'vector_db_dir':
-                v = base_dir / "data" / "chroma_db"
-            elif field_name == 'maps_dir':
-                v = base_dir / "data" / "maps"
-            elif field_name == 'logs_dir':
-                v = base_dir / "logs"
+    def __init__(self, **kwargs):
+        # Manejar variables de entorno de directorios
+        env_mappings = {
+            "documents_dir": "DOCUMENTS_DIR",
+            "vector_db_dir": "VECTOR_DB_DIR", 
+            "maps_dir": "MAPS_DIR",
+            "logs_dir": "LOGS_DIR"
+        }
         
-        if v:
-            Path(v).mkdir(parents=True, exist_ok=True)
-        return v
+        for field_name, env_var in env_mappings.items():
+            env_value = os.getenv(env_var)
+            if env_value and field_name not in kwargs:
+                kwargs[field_name] = Path(env_value)
+        
+        super().__init__(**kwargs)
+        
+        # Crear directorios por defecto si no se especificaron
+        if self.documents_dir is None:
+            self.documents_dir = self.base_dir / "data" / "documents"
+        if self.vector_db_dir is None:
+            self.vector_db_dir = self.base_dir / "data" / "chroma_db"
+        if self.maps_dir is None:
+            self.maps_dir = self.base_dir / "data" / "maps"
+        if self.logs_dir is None:
+            self.logs_dir = self.base_dir / "logs"
+            
+        # Crear todos los directorios
+        for directory in [self.documents_dir, self.vector_db_dir, self.maps_dir, self.logs_dir]:
+            if directory:
+                directory.mkdir(parents=True, exist_ok=True)
 
 class RAGSettings(BaseSettings):
     """Configuración del sistema RAG"""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="RAG_",
+        case_sensitive=False,
+        extra="ignore"
+    )
     
     chunk_size: int = Field(default=1000)
     chunk_overlap: int = Field(default=200)
     similarity_search_k: int = Field(default=5)
     
     # Tipos de archivo soportados
-    supported_extensions: list[str] = [".md", ".pdf", ".csv", ".txt", ".docx"]
+    supported_extensions: List[str] = Field(default=[".md", ".pdf", ".csv", ".txt", ".docx"])
 
 class GISSettings(BaseSettings):
     """Configuración del sistema GIS"""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="GIS_",
+        case_sensitive=False,
+        extra="ignore"
+    )
     
     default_crs: str = Field(default="EPSG:4326")  # WGS84
     projected_crs: str = Field(default="EPSG:3857")  # Web Mercator
@@ -106,7 +190,7 @@ class GISSettings(BaseSettings):
     max_search_radius: int = Field(default=10000)  # metros
     
     # Tipos de equipamientos
-    facility_types: dict = Field(default_factory=lambda: {
+    facility_types: Dict[str, Dict[str, Any]] = Field(default_factory=lambda: {
         'hospital': {
             'query': 'amenity=hospital',
             'icon': 'plus',
@@ -168,16 +252,29 @@ class GISSettings(BaseSettings):
 class LoggingSettings(BaseSettings):
     """Configuración de logging"""
     
-    level: str = Field(default="INFO", env="LOG_LEVEL")
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    model_config = SettingsConfigDict(
+        env_prefix="LOG_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    level: str = Field(default="INFO")
+    format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     
     # Archivos de log
-    main_log_file: str = "main.log"
-    error_log_file: str = "errors.log"
-    access_log_file: str = "access.log"
+    main_log_file: str = Field(default="main.log")
+    error_log_file: str = Field(default="errors.log")
+    access_log_file: str = Field(default="access.log")
 
 class Settings(BaseSettings):
     """Configuración principal del sistema"""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"  # Ignorar variables extra en lugar de fallar
+    )
     
     # Configuraciones específicas
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -187,10 +284,6 @@ class Settings(BaseSettings):
     rag: RAGSettings = Field(default_factory=RAGSettings)
     gis: GISSettings = Field(default_factory=GISSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 # Instancia global de configuración
 settings = Settings()

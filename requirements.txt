@@ -10,6 +10,9 @@ langchain-chroma>=0.1.4
 # Base de datos y vectores
 chromadb>=0.5.0
 psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.0
+geoalchemy2>=0.14.0
+asyncpg>=0.29.0
 
 # Geoespacial
 geopandas>=1.0.1
@@ -22,6 +25,7 @@ geopy>=2.4.1
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
+pydantic-settings>=2.0.0
 
 # Procesamiento de datos
 pandas>=2.2.0
@@ -34,6 +38,3 @@ python-multipart>=0.0.9
 requests>=2.31.0
 python-dotenv>=1.0.0
 
-sqlalchemy>=2.0.0
-geoalchemy2>=0.14.0
-asyncpg>=0.29.0
