@@ -113,7 +113,8 @@ class ServerManager:
         
         for config in self.server_configs:
             # Convertir ruta de módulo a ruta de archivo
-            module_file_path = self.project_root / config.module_path.replace(".", "/") + ".py"
+            module_file_path = self.project_root / config.module_path.replace(".", "/")
+            module_file_path = module_file_path.with_suffix(".py")
             
             if module_file_path.exists():
                 valid_servers.append(config)
