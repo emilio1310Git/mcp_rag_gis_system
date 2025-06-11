@@ -28,6 +28,36 @@ mcp_rag_gis_system/
 └── docker/             # Contenedores PostgreSQL+PostGIS+Ollama
 ```
 
+## ⛓ Esquema general del sistema
+
+```mermaid
+graph TD
+    subgraph Infraestructura
+        D1[Docker: PostgreSQL + PostGIS]
+        D2[Docker: Ollama]
+    end
+    subgraph Backend
+        S1[Servidor MCP RAG]
+        S2[Servidor MCP Maps]
+        S3[Servidor MCP GIS]
+        API[API FastAPI]
+    end
+    subgraph Datos
+        V1[ChromaDB]
+        F1[Documentos, Mapas, Vectorstore]
+    end
+    D1 --> S3
+    D2 --> S1
+    V1 --> S1
+    F1 --> S1
+    S1 --> API
+    S2 --> API
+    S3 --> API
+    API --> Usuario
+```
+
+
+
 ## 🗺️ Casos de uso
 
 - Consultoría urbana y administración pública
