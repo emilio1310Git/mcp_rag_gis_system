@@ -10,7 +10,7 @@ import uvicorn
 
 from ..config import settings
 from ..database import postgres_client
-from .routers import maps, gis
+from .routers import maps, gis, timeseries
 
 # Configurar logging
 logging.basicConfig(
@@ -63,16 +63,18 @@ app.mount("/static", StaticFiles(directory=str(settings.paths.maps_dir)), name="
 # Incluir routers
 app.include_router(maps.router, prefix="/api/maps", tags=["maps"])
 app.include_router(gis.router, prefix="/api/gis", tags=["gis"])
+app.include_router(timeseries.router, prefix="/api/timeseries", tags=["timeseries"])
 
 @app.get("/")
 async def root():
     """Endpoint raíz"""
     return {
-        "message": f"Sistema MCP RAG GIS v{settings.api.version}",
+        "message": f"Sistema MCP RAG GIS + TimescaleDB v{settings.api.version}",
         "status": "running",
         "endpoints": {
             "maps": "/api/maps",
             "gis": "/api/gis",
+            "timeseries": "/api/timeseries",  
             "docs": "/docs"
         }
     }

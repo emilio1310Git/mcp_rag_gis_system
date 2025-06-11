@@ -1,6 +1,4 @@
-"""Configuración centralizada del sistema MCP RAG GIS"""
-
-"""Configuración centralizada del sistema MCP RAG GIS"""
+"""Configuración centralizada del sistema MCP RAG GIS + TimescaleDB"""
 
 import os
 from pathlib import Path
@@ -13,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class DatabaseSettings(BaseSettings):
-    """Configuración de base de datos PostgreSQL"""
+    """Configuración de base de datos PostgreSQL + TimescaleDB"""
     
     model_config = SettingsConfigDict(
         env_prefix="POSTGRES_",
@@ -26,6 +24,10 @@ class DatabaseSettings(BaseSettings):
     db: str = Field(default="gis_db", description="Nombre de la base de datos")
     user: str = Field(default="postgres", description="Usuario de PostgreSQL")
     password: str = Field(default="password", description="Contraseña de PostgreSQL")
+    
+    # Configuración específica de TimescaleDB
+    enable_timescale: bool = Field(default=True, description="Habilitar extensión TimescaleDB")
+    chunk_time_interval: str = Field(default="7 days", description="Intervalo de chunks para hypertables")
     
     @property
     def url(self) -> str:
@@ -90,8 +92,8 @@ class APISettings(BaseSettings):
     host: str = Field(default="localhost", description="Host de la API")
     port: int = Field(default=8000, description="Puerto de la API")
     debug: bool = Field(default=False, description="Modo debug")
-    title: str = Field(default="Sistema MCP RAG GIS")
-    version: str = Field(default="2.0.0")
+    title: str = Field(default="Sistema MCP RAG GIS + TimescaleDB")
+    version: str = Field(default="2.1.0")
     
     # CORS
     cors_origins: List[str] = Field(default=[
@@ -110,6 +112,65 @@ class APISettings(BaseSettings):
             
         super().__init__(**kwargs)
 
+class DashboardSettings(BaseSettings):
+    """Configuración del dashboard Dash"""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="DASH_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    host: str = Field(default="localhost", description="Host del dashboard")
+    port: int = Field(default=8050, description="Puerto del dashboard")
+    debug: bool = Field(default=True, description="Modo debug de Dash")
+    update_interval: int = Field(default=5000, description="Intervalo de actualización en ms")
+
+class TwilioSettings(BaseSettings):
+    """Configuración de Twilio para alertas SMS"""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="TWILIO_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    account_sid: Optional[str] = Field(default=None, description="Twilio Account SID")
+    auth_token: Optional[str] = Field(default=None, description="Twilio Auth Token")
+    from_number: Optional[str] = Field(default=None, description="Número Twilio origen")
+    
+    @property
+    def is_configured(self) -> bool:
+        """Verificar si Twilio está configurado"""
+        return all([self.account_sid, self.auth_token, self.from_number])
+
+class SensorSettings(BaseSettings):
+    """Configuración de sensores IoT"""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="SENSOR_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    # Configuración de simulación de datos
+    simulation_enabled: bool = Field(default=True, description="Habilitar simulación de sensores")
+    simulation_interval: int = Field(default=30, description="Intervalo de simulación en segundos")
+    
+    # Tipos de sensores soportados
+    supported_types: List[str] = Field(default=[
+        "temperature", "humidity", "air_quality", "noise", "occupancy"
+    ])
+    
+    # Límites de alerta por defecto
+    default_thresholds: Dict[str, Dict[str, float]] = Field(default_factory=lambda: {
+        "temperature": {"min": -10, "max": 45, "critical": 50},
+        "humidity": {"min": 10, "max": 90, "critical": 95},
+        "air_quality": {"min": 0, "max": 150, "critical": 300},
+        "noise": {"min": 0, "max": 70, "critical": 85},
+        "occupancy": {"min": 0, "max": 100, "critical": 120}
+    })
+
 class PathSettings(BaseSettings):
     """Configuración de rutas del proyecto"""
     
@@ -120,11 +181,15 @@ class PathSettings(BaseSettings):
     
     base_dir: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent)
     
-    # Directorios de datos
+    # Directorios de datos existentes
     documents_dir: Optional[Path] = Field(default=None)
     vector_db_dir: Optional[Path] = Field(default=None)
     maps_dir: Optional[Path] = Field(default=None)
     logs_dir: Optional[Path] = Field(default=None)
+    
+    # Nuevos directorios para TimescaleDB
+    sensor_data_dir: Optional[Path] = Field(default=None)
+    dashboard_static_dir: Optional[Path] = Field(default=None)
     
     def __init__(self, **kwargs):
         # Manejar variables de entorno de directorios
@@ -132,7 +197,9 @@ class PathSettings(BaseSettings):
             "documents_dir": "DOCUMENTS_DIR",
             "vector_db_dir": "VECTOR_DB_DIR", 
             "maps_dir": "MAPS_DIR",
-            "logs_dir": "LOGS_DIR"
+            "logs_dir": "LOGS_DIR",
+            "sensor_data_dir": "SENSOR_DATA_DIR",
+            "dashboard_static_dir": "DASHBOARD_STATIC_DIR"
         }
         
         for field_name, env_var in env_mappings.items():
@@ -151,9 +218,16 @@ class PathSettings(BaseSettings):
             self.maps_dir = self.base_dir / "data" / "maps"
         if self.logs_dir is None:
             self.logs_dir = self.base_dir / "logs"
+        if self.sensor_data_dir is None:
+            self.sensor_data_dir = self.base_dir / "data" / "sensors"
+        if self.dashboard_static_dir is None:
+            self.dashboard_static_dir = self.base_dir / "frontend" / "static"
             
         # Crear todos los directorios
-        for directory in [self.documents_dir, self.vector_db_dir, self.maps_dir, self.logs_dir]:
+        for directory in [
+            self.documents_dir, self.vector_db_dir, self.maps_dir, 
+            self.logs_dir, self.sensor_data_dir, self.dashboard_static_dir
+        ]:
             if directory:
                 directory.mkdir(parents=True, exist_ok=True)
 
@@ -189,63 +263,71 @@ class GISSettings(BaseSettings):
     default_search_radius: int = Field(default=2000)  # metros
     max_search_radius: int = Field(default=10000)  # metros
     
-    # Tipos de equipamientos
+    # Tipos de equipamientos (extendido con sensores)
     facility_types: Dict[str, Dict[str, Any]] = Field(default_factory=lambda: {
         'hospital': {
             'query': 'amenity=hospital',
             'icon': 'plus',
             'color': 'red',
             'name': 'Hospital',
-            'priority': 1
+            'priority': 1,
+            'can_have_sensors': True
         },
         'school': {
             'query': 'amenity=school',
             'icon': 'graduation-cap',
             'color': 'blue',
             'name': 'Colegio',
-            'priority': 2
+            'priority': 2,
+            'can_have_sensors': True
         },
         'pharmacy': {
             'query': 'amenity=pharmacy',
             'icon': 'medkit',
             'color': 'green',
             'name': 'Farmacia',
-            'priority': 3
+            'priority': 3,
+            'can_have_sensors': False
         },
         'police': {
             'query': 'amenity=police',
             'icon': 'shield',
             'color': 'darkblue',
             'name': 'Comisaría',
-            'priority': 4
+            'priority': 4,
+            'can_have_sensors': True
         },
         'fire_station': {
             'query': 'amenity=fire_station',
             'icon': 'fire',
             'color': 'orange',
             'name': 'Bomberos',
-            'priority': 5
+            'priority': 5,
+            'can_have_sensors': True
         },
         'library': {
             'query': 'amenity=library',
             'icon': 'book',
             'color': 'purple',
             'name': 'Biblioteca',
-            'priority': 6
+            'priority': 6,
+            'can_have_sensors': True
         },
         'post_office': {
             'query': 'amenity=post_office',
             'icon': 'envelope',
             'color': 'yellow',
             'name': 'Correos',
-            'priority': 7
+            'priority': 7,
+            'can_have_sensors': False
         },
         'bank': {
             'query': 'amenity=bank',
             'icon': 'university',
             'color': 'darkgreen',
             'name': 'Banco',
-            'priority': 8
+            'priority': 8,
+            'can_have_sensors': False
         }
     })
 
@@ -265,6 +347,8 @@ class LoggingSettings(BaseSettings):
     main_log_file: str = Field(default="main.log")
     error_log_file: str = Field(default="errors.log")
     access_log_file: str = Field(default="access.log")
+    sensor_log_file: str = Field(default="sensors.log")  # Nuevo
+    alerts_log_file: str = Field(default="alerts.log")  # Nuevo
 
 class Settings(BaseSettings):
     """Configuración principal del sistema"""
@@ -280,6 +364,9 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
     api: APISettings = Field(default_factory=APISettings)
+    dashboard: DashboardSettings = Field(default_factory=DashboardSettings)  # Nuevo
+    twilio: TwilioSettings = Field(default_factory=TwilioSettings)  # Nuevo
+    sensors: SensorSettings = Field(default_factory=SensorSettings)  # Nuevo
     paths: PathSettings = Field(default_factory=PathSettings)
     rag: RAGSettings = Field(default_factory=RAGSettings)
     gis: GISSettings = Field(default_factory=GISSettings)

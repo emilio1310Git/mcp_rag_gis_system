@@ -43,3 +43,45 @@ class Equipamiento(Base):
     geom = Column(Geometry('POINT', srid=4326), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Sensor(Base):
+    """Modelo para sensores IoT"""
+    
+    __tablename__ = 'sensors'
+    
+    sensor_id = Column(String(50), primary_key=True)
+    name = Column(String(200), nullable=False)
+    sensor_type = Column(String(50), nullable=False, index=True)
+    equipment_id = Column(UUID(as_uuid=True), ForeignKey('equipamientos.id'))
+    location = Column(Geometry('POINT', srid=4326), nullable=False)
+    active = Column(Boolean, default=True)
+    metadata = Column(JSON, default={})
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SensorReading(Base):
+    """Modelo para lecturas de sensores (TimescaleDB hypertable)"""
+    
+    __tablename__ = 'sensor_readings'
+    
+    id = Column(Integer, primary_key=True)
+    sensor_id = Column(String(50), ForeignKey('sensors.sensor_id'), nullable=False)
+    reading_type = Column(String(50), nullable=False, index=True)
+    value = Column(Numeric, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    metadata = Column(JSON, default={})
+
+class SensorAlert(Base):
+    """Modelo para alertas de sensores"""
+    
+    __tablename__ = 'sensor_alerts'
+    
+    id = Column(Integer, primary_key=True)
+    sensor_id = Column(String(50), ForeignKey('sensors.sensor_id'), nullable=False)
+    reading_type = Column(String(50), nullable=False)
+    value = Column(Numeric, nullable=False)
+    level = Column(String(20), nullable=False)  # CRITICAL, WARNING, INFO
+    message = Column(Text, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    resolved = Column(Boolean, default=False)
+    resolved_at = Column(DateTime(timezone=True))

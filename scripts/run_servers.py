@@ -93,6 +93,12 @@ class ServerManager:
                 module_path="src.mcp_servers.gis_server", 
                 description="Análisis geoespacial avanzado con PostgreSQL/PostGIS",
                 critical=False
+            ),
+            ServerConfig(
+                name="TimescaleDB",
+                module_path="src.mcp_servers.timescale_server",
+                description="Series temporales IoT y análisis con TimescaleDB",
+                critical=False  # No crítico para mantener compatibilidad
             )
         ]
         
